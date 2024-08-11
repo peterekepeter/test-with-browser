@@ -22,11 +22,13 @@ function printContext() {
     const payload = JSON.stringify(github.context.payload, undefined, 2)
     console.log(`The event payload: ${payload}`);
 }
-    
+
 async function automate(testUrl) {
 
     // Launch the browser and open a new blank page
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({    
+        args: ['--no-sandbox']
+    });
     const page = await browser.newPage();
 
     let errorCount = 0;
@@ -133,7 +135,7 @@ class Timer {
             this.debounceTimeout = setTimeout(this.handler, this.debounceMs);
         });
     }
-    
+
     debounce() {
         clearTimeout(this.debounceTimeout);
         setTimeout(this.handler, this.debounceMs);
