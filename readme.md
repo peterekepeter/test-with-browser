@@ -12,8 +12,8 @@ that it's running somewhere.
 ```yaml
 steps:
 - name: Test Deployed Website
-  uses: peterekepeter/test-with-browser@v1.0.1
-  timeout-minutes: 1
+  uses: peterekepeter/test-with-browser@v1.0.2
+  timeout-minutes: 5
   with:
     url: 'https://github.com/status'
 ```
@@ -28,8 +28,8 @@ web-app that was bundled in a previous step.
 ```yaml
 steps:
 - name: Test Local HTML File
-  uses: peterekepeter/test-with-browser@v1.0.1
-  timeout-minutes: 1
+  uses: peterekepeter/test-with-browser@v1.0.2
+  timeout-minutes: 5
   with:
     url: 'file://${{ github.workspace }}/test/static-site/index.html'
 ```

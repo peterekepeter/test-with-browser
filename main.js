@@ -22,7 +22,7 @@ function printContext() {
     const payload = JSON.stringify(github.context.payload, undefined, 2)
     console.log(`The event payload: ${payload}`);
 }
-    
+
 async function automate(testUrl) {
 
     // Launch the browser and open a new blank page
@@ -135,7 +135,7 @@ class Timer {
             this.debounceTimeout = setTimeout(this.handler, this.debounceMs);
         });
     }
-    
+
     debounce() {
         clearTimeout(this.debounceTimeout);
         setTimeout(this.handler, this.debounceMs);
