@@ -1,10 +1,13 @@
-const core = require('@actions/core');
-const github = require('@actions/github');
-const puppeteer = require('puppeteer');
+'use strict';
 
-githubActionsMain();
+async function main() {
+    const core = require('@actions/core');
+    const github = require('@actions/github');
 
-async function githubActionsMain() {
+    // Get the JSON webhook payload for the event that triggered the workflow
+    // const payload = JSON.stringify(github.context.payload, undefined, 2)
+    // console.log(`The event payload: ${payload}`);
+
     try {
         const url = core.getInput('url');
         const result = await automate(url);
@@ -17,26 +20,23 @@ async function githubActionsMain() {
     }
 }
 
-function printContext() {
-    // Get the JSON webhook payload for the event that triggered the workflow
-    const payload = JSON.stringify(github.context.payload, undefined, 2)
-    console.log(`The event payload: ${payload}`);
-}
-
 async function automate(testUrl) {
+    const puppeteer = require('puppeteer');
 
     // Launch the browser and open a new blank page
-    const browser = await puppeteer.launch({    
+    const browser = await puppeteer.launch({
         args: ['--no-sandbox']
     });
     const page = await browser.newPage();
 
     let errorCount = 0;
+    let stopReason = "Unknown"
 
     const timer = new Timer({
         debounceMs: 1000, // 1 second
         totalMs: 60000, // 60 seconds
     });
+    console.log(`timer.reason: ${timer.reason}`);
 
     page.on('request', request => {
         const method = request.method();
@@ -111,6 +111,11 @@ async function automate(testUrl) {
     await page.goto(url);
     await page.setViewport({width: 1080, height: 1024});
     await timer.promise;
+    console.log(`timer.reason: ${timer.reason}`);
+    if (timer.reason == 1) stopReason = `Timeout of ${timer.totalMs}ms exceeded`;
+    else if (timer.reason == 2) stopReason = `No browser activity for ${timer.debounceMs}ms`;
+
+    console.log(`Closing browser: ${stopReason}!`)
     await browser.close();
 
     if (errorCount > 0) {
@@ -128,11 +133,12 @@ class Timer {
     constructor(options) {
         this.debounceMs = options?.debounceMs ?? 1000;
         this.totalMs = options?.totalMs ?? 60000;
-        this.handler = () => this.end();
+        this.handler = reason => this.end(reason);
+        this.reason = 0;
         this.promise = new Promise((resolve) => {
             this.resolve = resolve;
-            this.globalTimeout = setTimeout(this.handler, this.totalMs);
-            this.debounceTimeout = setTimeout(this.handler, this.debounceMs);
+            this.globalTimeout = setTimeout(this.handler, this.totalMs, 1);
+            this.debounceTimeout = setTimeout(this.handler, this.debounceMs, 2);
         });
     }
 
@@ -141,10 +147,17 @@ class Timer {
         setTimeout(this.handler, this.debounceMs);
     }
 
-    end() {
+    end(reason) {
+        this.reason = reason;
         clearTimeout(this.debounceTimeout);
         clearTimeout(this.globalTimeout);
         this.resolve();
     }
 
+}
+
+if (require.main === module) {
+    main();
+} else {
+    module.exports = { Timer };
 }
