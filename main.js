@@ -26,7 +26,9 @@ function printContext() {
 async function automate(testUrl) {
 
     // Launch the browser and open a new blank page
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({    
+        args: ['--no-sandbox']
+    });
     const page = await browser.newPage();
 
     let errorCount = 0;
