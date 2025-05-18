@@ -1,33 +1,62 @@
 'use strict';
 
 async function main() {
-    const core = require('@actions/core');
-    const github = require('@actions/github');
+    const actions = require('@actions/core');
 
+    // const github = require('@actions/github');
     // Get the JSON webhook payload for the event that triggered the workflow
     // const payload = JSON.stringify(github.context.payload, undefined, 2)
     // console.log(`The event payload: ${payload}`);
 
+    const url = actions.getInput('url');
+    const browser = actions.getInput('browser');
+    const expectFailure = actions.getBooleanInput('expect-error');
+    const requiresFirefox = browser === "firefox";
+    
+    if (requiresFirefox) {
+        // npx puppeteer browsers install firefox
+        sh("npx", "puppeteer", "browsers", "install", "firefox");
+    }
+
+    let error = null;
     try {
-        const url = core.getInput('url');
-        const result = await automate(url);
+        const result = await automate({ url, browser });
         if (!result) {
-            core.setFailed("Errors detect when browsing " + url);
+            error = new Error("Errors detected when browsing " + url)
         }
     }
     catch (err) {
-        core.setFailed(err);
+        error = err;
+    }
+
+    if (expectFailure) {
+        if (error) {
+            console.log(`\x1b[34;1mSuccess! Found expected error: ${error}`)
+            error = null;
+        }
+        else {
+            error = new Error("Expected an error, but none found.");
+        }
+    }
+
+    if (error) {
+        actions.setFailed(error);
     }
 }
 
-async function automate(testUrl) {
-    const puppeteer = require('puppeteer');
+async function automate({ url = '', browser = 'chrome' } = {}) {
+    // Before we continue, validate that the URL is valid
+    console.log(`\x1b[37;1mTest with ${browser}:\x1b[0m ${JSON.stringify(url)}`);
+    const URL = require("url").URL;
+    new URL(url); // throws if invalid
 
     // Launch the browser and open a new blank page
-    const browser = await puppeteer.launch({
-        args: ['--no-sandbox']
+    const puppeteer = require('puppeteer');
+    const browserInstance = await puppeteer.launch({
+        args: ['--no-sandbox'],
+        browser: browser
     });
-    const page = await browser.newPage();
+    const page = await browserInstance.newPage();
 
     let errorCount = 0;
     let stopReason = "Unknown"
@@ -41,7 +70,7 @@ async function automate(testUrl) {
     page.on('request', request => {
         const method = request.method();
         let style = "36;1";
-        switch(method) {
+        switch (method) {
             case "GET": style = "32;1"; break;
             case "POST": style = "33;1"; break;
             case "PUT": style = "33;1"; break;
@@ -56,7 +85,7 @@ async function automate(testUrl) {
         let pass = true;
         const msgType = item.type();
         let style = "38;1";
-        switch(msgType){
+        switch (msgType) {
             case 'error':
             case 'assert':
                 style = "31;1"
@@ -69,10 +98,10 @@ async function automate(testUrl) {
                 style = "36;1"
                 break;
         }
-        console.log(`\x1b[${style}m${pass?'.':'x'} ${msgType}\x1b[0m`, item.text());
+        console.log(`\x1b[${style}m${pass ? '.' : 'x'} ${msgType}\x1b[0m`, item.text());
         timer.debounce();
         if (!pass) {
-            errorCount+=1;
+            errorCount += 1;
         }
     })
 
@@ -98,25 +127,23 @@ async function automate(testUrl) {
             style = "35;1";
             pass = false;
         }
-        console.log(`\x1b[${style}m${pass?'.':'x'} ${code}\x1b[0m ${url}`);
+        console.log(`\x1b[${style}m${pass ? '.' : 'x'} ${code}\x1b[0m ${url}`);
         timer.debounce();
         if (!pass) {
-            errorCount+=1;
+            errorCount += 1;
         }
     });
 
     // Navigate the page to a URL.
-    const url = testUrl;
-    console.log(`\x1b[37;1mTEST:\x1b[0m ${url}`);
     await page.goto(url);
-    await page.setViewport({width: 1080, height: 1024});
+    await page.setViewport({ width: 1080, height: 1024 });
     await timer.promise;
     console.log(`timer.reason: ${timer.reason}`);
     if (timer.reason == 1) stopReason = `Timeout of ${timer.totalMs}ms exceeded`;
     else if (timer.reason == 2) stopReason = `No browser activity for ${timer.debounceMs}ms`;
 
     console.log(`Closing browser: ${stopReason}!`)
-    await browser.close();
+    await browserInstance.close();
 
     if (errorCount > 0) {
         console.log(`\x1b[31;1mfailed! ${errorCount} errors were found on ${url}`);
@@ -154,6 +181,18 @@ class Timer {
         this.resolve();
     }
 
+}
+
+function sh(cmd, ...args){
+    const { spawnSync } = require("child_process");
+    const result = spawnSync(cmd, args, { stdio: 'inherit' });
+    if (result.error) {
+        console.error(result.error);
+    }
+    if (result.status) {
+        console.error("status code", result.status);
+        process.exit(1);
+    }
 }
 
 if (require.main === module) {

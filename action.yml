@@ -7,6 +7,12 @@ inputs:
   url:  # id of input
     description: 'URL to test'
     required: true
+  browser:
+    description: 'Browser to use: chrome or firefox'
+    default: 'chrome'
+  expect-error:
+    description: 'Negates the test result causing it to fail if it passed.'
+    default: false
 # outputs:
 #   time: # id of output
 #     description: 'The time we greeted you'

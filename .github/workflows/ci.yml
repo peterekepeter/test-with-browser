@@ -11,18 +11,25 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-remote-site:
+  ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: peterekepeter/test-with-browser@main
-        timeout-minutes: 1
+      - name: 'URL Validation'
+        uses: peterekepeter/test-with-browser@main
+        with:
+          url: 'garbagevalue'
+          expect-error: true
+      - name: 'Minimal Setup'
+        uses: peterekepeter/test-with-browser@main
         with:
           url: 'https://github.com/status'
-  test-filesystem-file:
-    runs-on: ubuntu-latest
-    steps:
       - uses: actions/checkout@v4
-      - uses: peterekepeter/test-with-browser@main
-        timeout-minutes: 1
+      - name: 'Static File'
+        uses: peterekepeter/test-with-browser@main
         with:
           url: 'file://${{ github.workspace }}/test/static-site/index.html'
+      - name: 'Firefox'
+        uses: peterekepeter/test-with-browser@main
+        with:
+          url: 'file://${{ github.workspace }}/test/static-site/index.html'
+          browser: 'firefox'
