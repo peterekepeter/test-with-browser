@@ -32,7 +32,7 @@ web-app that was built in a previous step.
     - name: Test Local HTML File
       uses: peterekepeter/test-with-browser@v1.0.2
       with:
-        url: 'file://${{ github.workspace }}/test/static-site/index.html'
+        url: 'file://${{ github.workspace }}/test/hello.html'
 ```
 
 ## Browsers
@@ -45,7 +45,7 @@ You can specify if you want to test with `firefox` or `chrome`, by default
       - name: 'Firefox'
         uses: peterekepeter/test-with-browser@v1.0.2
         with:
-          url: 'file://${{ github.workspace }}/test/static-site/index.html'
+          url: 'file://${{ github.workspace }}/test/hello.html'
           browser: 'firefox'
 ```
 
@@ -53,7 +53,7 @@ You can specify if you want to test with `firefox` or `chrome`, by default
 ## Testing failure cases
 
 Sometimes it's necessary to check that errors are propertly reported.
-Setting `expect-failure: true` will cause the test to pass only if it
+Setting `expect-fail: true` will cause the test to pass only if it
 fails. The following YML tests that the URL validation is working.
 
 ```yml
@@ -62,5 +62,22 @@ fails. The following YML tests that the URL validation is working.
         uses: peterekepeter/test-with-browser@v1.0.2
         with:
           url: 'garbagevalue'
-          expect-failure: true
+          expect-fail: true
+```
+
+## Check for specific console message
+
+You can set up the test to only pass if a certain log message is logged.
+If you plan to run a test framework and it logs a message at the end
+then you can use this to make the action fail if it does not match.
+
+Note that 
+
+```yml
+    steps:
+      - name: 'Expect console pattern matches'
+        uses: peterekepeter/test-with-browser@main
+        with:
+          url: 'file://${{ github.workspace }}/test/test.html'
+          expect-console-pattern: '\d+ tests successfully passed!'
 ```

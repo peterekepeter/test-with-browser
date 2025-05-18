@@ -10,9 +10,12 @@ inputs:
   browser:
     description: 'Browser to use: chrome or firefox'
     default: 'chrome'
-  expect-error:
+  expect-fail:
     description: 'Negates the test result causing it to fail if it passed.'
     default: false
+  expect-console-pattern:
+    description: 'Sets up a regular expression that needs to match one console message'
+    default: ''
 # outputs:
 #   time: # id of output
 #     description: 'The time we greeted you'

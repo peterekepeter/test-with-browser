@@ -10,20 +10,23 @@ async function main() {
 
     const url = actions.getInput('url');
     const browser = actions.getInput('browser');
-    const expectFailure = actions.getBooleanInput('expect-error');
+    const expectFailure = actions.getBooleanInput('expect-fail');
+    const expectConsolePatternStr = actions.getInput('expect-console-pattern')
     const requiresFirefox = browser === "firefox";
-    
-    if (requiresFirefox) {
-        // npx puppeteer browsers install firefox
-        sh("npx", "puppeteer", "browsers", "install", "firefox");
-    }
 
     let error = null;
     try {
-        const result = await automate({ url, browser });
-        if (!result) {
-            error = new Error("Errors detected when browsing " + url)
+        if (requiresFirefox) {
+            // npx puppeteer browsers install firefox
+            sh("npx", "puppeteer", "browsers", "install", "firefox");
         }
+
+        let consoleRegex = null
+        if (expectConsolePatternStr) {
+            consoleRegex = new RegExp(expectConsolePatternStr, 'i');
+        }
+
+        await automateBrowser({ url, browser, consoleRegex });
     }
     catch (err) {
         error = err;
@@ -44,7 +47,7 @@ async function main() {
     }
 }
 
-async function automate({ url = '', browser = 'chrome' } = {}) {
+async function automateBrowser({ url = '', browser = 'chrome', consoleRegex = null } = {}) {
     // Before we continue, validate that the URL is valid
     console.log(`\x1b[37;1mTest with ${browser}:\x1b[0m ${JSON.stringify(url)}`);
     const URL = require("url").URL;
@@ -56,10 +59,26 @@ async function automate({ url = '', browser = 'chrome' } = {}) {
         args: ['--no-sandbox'],
         browser: browser
     });
+    let browserCloseReason = "Unknown reason!"
+    try {
+        await automatePage(browserInstance, url, consoleRegex);
+    }
+    catch (err) {
+        browserCloseReason = "Error was thrown"
+        throw err;
+    }
+    finally {
+        console.log(`Closing browser: ${browserCloseReason}!`)
+        await browserInstance.close();
+    }
+
+}
+
+async function automatePage(browserInstance, navigateUrl, consoleRegex) {
     const page = await browserInstance.newPage();
 
+    let consoleRegexMatch = 0
     let errorCount = 0;
-    let stopReason = "Unknown"
 
     const timer = new Timer({
         debounceMs: 1000, // 1 second
@@ -98,8 +117,13 @@ async function automate({ url = '', browser = 'chrome' } = {}) {
                 style = "36;1"
                 break;
         }
-        console.log(`\x1b[${style}m${pass ? '.' : 'x'} ${msgType}\x1b[0m`, item.text());
+        const text = item.text();
+        console.log(`\x1b[${style}m${pass ? '.' : 'x'} ${msgType}\x1b[0m`, text);
         timer.debounce();
+        if (consoleRegex && consoleRegex.test(text)) {
+            console.log('\x1b[32;1m. . matches\x1b[0m', JSON.stringify(consoleRegex.toString()))
+            consoleRegexMatch += 1;
+        }
         if (!pass) {
             errorCount += 1;
         }
@@ -135,22 +159,25 @@ async function automate({ url = '', browser = 'chrome' } = {}) {
     });
 
     // Navigate the page to a URL.
-    await page.goto(url);
+    await page.goto(navigateUrl);
     await page.setViewport({ width: 1080, height: 1024 });
     await timer.promise;
     console.log(`timer.reason: ${timer.reason}`);
-    if (timer.reason == 1) stopReason = `Timeout of ${timer.totalMs}ms exceeded`;
-    else if (timer.reason == 2) stopReason = `No browser activity for ${timer.debounceMs}ms`;
+    if (timer.reason == 1) browserCloseReason = `Timeout of ${timer.totalMs}ms exceeded`;
+    else if (timer.reason == 2) browserCloseReason = `No browser activity for ${timer.debounceMs}ms`;
 
-    console.log(`Closing browser: ${stopReason}!`)
-    await browserInstance.close();
+    if (consoleRegex && consoleRegexMatch <= 0) {
+        if (consoleRegexMatch <= 0) {
+            const message = `${consoleRegex} did not match anything`;
+            console.log(`\x1b[31;1mfailed! ${message}!`);
+            throw new Error(message)
+        }
+    }
 
     if (errorCount > 0) {
-        console.log(`\x1b[31;1mfailed! ${errorCount} errors were found on ${url}`);
-        return false;
-    } else {
-        console.log(`\x1b[34;1msuccess! no errors were found on ${url}`);
-        return true;
+        message = `${errorCount} errors were found`;
+        console.log(`\x1b[31;1mfailed! ${message} errors were found on ${navigateUrl}`);
+        throw new Error(message)
     }
 
 }
@@ -183,7 +210,7 @@ class Timer {
 
 }
 
-function sh(cmd, ...args){
+function sh(cmd, ...args) {
     const { spawnSync } = require("child_process");
     const result = spawnSync(cmd, args, { stdio: 'inherit' });
     if (result.error) {

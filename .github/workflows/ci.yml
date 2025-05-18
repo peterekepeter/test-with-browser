@@ -14,22 +14,43 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: 'Static file not found'
+        uses: peterekepeter/test-with-browser@main
+        with:
+          url: 'file://${{ github.workspace }}/test/doesnotexist'
+          expect-fail: true
       - name: 'URL Validation'
         uses: peterekepeter/test-with-browser@main
         with:
           url: 'garbagevalue'
-          expect-error: true
+          expect-fail: true
+      - name: 'Expect console pattern not matches'
+        uses: peterekepeter/test-with-browser@main
+        with:
+          url: 'file://${{ github.workspace }}/test/hello.html'
+          expect-console-pattern: 'shoud_not_match_anything'
+          expect-fail: true
+      - name: 'Expect console pattern matches'
+        uses: peterekepeter/test-with-browser@main
+        with:
+          url: 'file://${{ github.workspace }}/test/test.html'
+          expect-console-pattern: '\d+ tests successfully passed!'
+      - name: 'URL Validation'
+        uses: peterekepeter/test-with-browser@main
+        with:
+          url: 'garbagevalue'
+          expect-fail: true
       - name: 'Minimal Setup'
         uses: peterekepeter/test-with-browser@main
         with:
           url: 'https://github.com/status'
-      - uses: actions/checkout@v4
       - name: 'Static File'
         uses: peterekepeter/test-with-browser@main
         with:
-          url: 'file://${{ github.workspace }}/test/static-site/index.html'
+          url: 'file://${{ github.workspace }}/test/hello.html'
       - name: 'Firefox'
         uses: peterekepeter/test-with-browser@main
         with:
-          url: 'file://${{ github.workspace }}/test/static-site/index.html'
+          url: 'file://${{ github.workspace }}/test/hello.html'
           browser: 'firefox'
