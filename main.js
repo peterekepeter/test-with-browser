@@ -12,21 +12,26 @@ async function main() {
     const browser = actions.getInput('browser');
     const expectFailure = actions.getBooleanInput('expect-fail');
     const expectConsolePatternStr = actions.getInput('expect-console-pattern')
-    const requiresFirefox = browser === "firefox";
+    const timeoutPerUrl = actions.getInput('timeout-seconds') * 1000;
+    const timeoutInactive = actions.getInput('timeout-inactive-seconds') * 1000;
 
     let error = null;
     try {
-        if (requiresFirefox) {
-            // npx puppeteer browsers install firefox
-            sh("npx", "puppeteer", "browsers", "install", "firefox");
-        }
+        if (isNaN(timeoutPerUrl)) throw new Error('timeout-seconds has invalid value!')
+        if (isNaN(timeoutInactive)) throw new Error('timeout-inactive-seconds has invalid value!')
 
         let consoleRegex = null
         if (expectConsolePatternStr) {
             consoleRegex = new RegExp(expectConsolePatternStr, 'i');
         }
 
-        await automateBrowser({ url, browser, consoleRegex });
+        const requiresFirefox = browser === "firefox";
+        if (requiresFirefox) {
+            // npx puppeteer browsers install firefox
+            sh("npx", "puppeteer", "browsers", "install", "firefox");
+        }
+
+        await automateBrowser({ url, browser, consoleRegex, timeoutPerUrl, timeoutInactive });
     }
     catch (err) {
         error = err;
@@ -47,7 +52,13 @@ async function main() {
     }
 }
 
-async function automateBrowser({ url = '', browser = 'chrome', consoleRegex = null } = {}) {
+async function automateBrowser({ 
+    url = '', 
+    browser = 'chrome', 
+    consoleRegex = null, 
+    timeoutPerUrl=60000, 
+    timeoutInactive=3000,
+} = {}) {
     // Before we continue, validate that the URL is valid
     console.log(`\x1b[37;1mTest with ${browser}:\x1b[0m ${JSON.stringify(url)}`);
     const URL = require("url").URL;
@@ -61,7 +72,7 @@ async function automateBrowser({ url = '', browser = 'chrome', consoleRegex = nu
     });
     let browserCloseReason = "Unknown reason!"
     try {
-        await automatePage(browserInstance, url, consoleRegex);
+        await automatePage(browserInstance, url, consoleRegex, timeoutPerUrl, timeoutInactive);
     }
     catch (err) {
         browserCloseReason = "Error was thrown"
@@ -74,15 +85,15 @@ async function automateBrowser({ url = '', browser = 'chrome', consoleRegex = nu
 
 }
 
-async function automatePage(browserInstance, navigateUrl, consoleRegex) {
+async function automatePage(browserInstance, navigateUrl, consoleRegex, timeoutPerUrl, timeoutInactive) {
     const page = await browserInstance.newPage();
 
     let consoleRegexMatch = 0
     let errorCount = 0;
 
     const timer = new Timer({
-        debounceMs: 1000, // 1 second
-        totalMs: 60000, // 60 seconds
+        debounceMs: timeoutInactive,
+        totalMs: timeoutPerUrl,
     });
     console.log(`timer.reason: ${timer.reason}`);
 
@@ -187,7 +198,7 @@ class Timer {
     constructor(options) {
         this.debounceMs = options?.debounceMs ?? 1000;
         this.totalMs = options?.totalMs ?? 60000;
-        this.handler = reason => this.end(reason);
+        this.handler = reasonArg => this.end(reasonArg);
         this.reason = 0;
         this.promise = new Promise((resolve) => {
             this.resolve = resolve;
@@ -201,8 +212,8 @@ class Timer {
         setTimeout(this.handler, this.debounceMs);
     }
 
-    end(reason) {
-        this.reason = reason;
+    end(reasonArg) {
+        this.reason = reasonArg;
         clearTimeout(this.debounceTimeout);
         clearTimeout(this.globalTimeout);
         this.resolve();

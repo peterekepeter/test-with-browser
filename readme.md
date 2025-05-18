@@ -13,7 +13,7 @@ that it's running somewhere where the runner has network access to.
 ```yaml
     steps:
     - name: Test Deployed Website
-      uses: peterekepeter/test-with-browser@v1.0.2
+      uses: peterekepeter/test-with-browser@v1.1.0
       with:
         url: 'https://github.com/status'
 ```
@@ -30,7 +30,7 @@ web-app that was built in a previous step.
 ```yml
     steps:
     - name: Test Local HTML File
-      uses: peterekepeter/test-with-browser@v1.0.2
+      uses: peterekepeter/test-with-browser@v1.1.0
       with:
         url: 'file://${{ github.workspace }}/test/hello.html'
 ```
@@ -42,11 +42,11 @@ You can specify if you want to test with `firefox` or `chrome`, by default
 
 ```yml
     steps:
-      - name: 'Firefox'
-        uses: peterekepeter/test-with-browser@v1.0.2
-        with:
-          url: 'file://${{ github.workspace }}/test/hello.html'
-          browser: 'firefox'
+    - name: 'Firefox'
+      uses: peterekepeter/test-with-browser@v1.1.0
+      with:
+        url: 'file://${{ github.workspace }}/test/hello.html'
+        browser: 'firefox'
 ```
 
 
@@ -54,15 +54,14 @@ You can specify if you want to test with `firefox` or `chrome`, by default
 
 Sometimes it's necessary to check that errors are propertly reported.
 Setting `expect-fail: true` will cause the test to pass only if it
-fails. The following YML tests that the URL validation is working.
+fails. The following YML tests navigation fails to a file which does not exist.
 
 ```yml
     steps:
-      - name: 'URL Validation'
-        uses: peterekepeter/test-with-browser@v1.0.2
-        with:
-          url: 'garbagevalue'
-          expect-fail: true
+    - uses: peterekepeter/test-with-browser@main
+      with:
+        url: 'file://${{ github.workspace }}/test/doesnotexist'
+        expect-fail: true
 ```
 
 ## Check for specific console message
@@ -75,9 +74,26 @@ Note that
 
 ```yml
     steps:
-      - name: 'Expect console pattern matches'
-        uses: peterekepeter/test-with-browser@main
-        with:
-          url: 'file://${{ github.workspace }}/test/test.html'
-          expect-console-pattern: '\d+ tests successfully passed!'
+    - name: 'Expect console pattern matches'
+      uses: peterekepeter/test-with-browser@main
+      with:
+        url: 'file://${{ github.workspace }}/test/test.html'
+        expect-console-pattern: '\d+ tests successfully passed!'
+```
+
+
+## Configure timeouts
+
+You can configure the timeouts. There is a timeout for browser inactivity
+and a timeout for the test. If any of these timeouts are reached, the
+browser is closed and a conclusion is drawn based on inspected logs
+and inspected requests. You can see the default values below.
+
+```yml
+    steps:
+    - uses: peterekepeter/test-with-browser@main
+      with:
+        url: 'file://${{ github.workspace }}/test/hello.html'
+        timeout-seconds: 60
+        timeout-inactive-seconds: 3
 ```

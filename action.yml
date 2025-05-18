@@ -14,8 +14,14 @@ inputs:
     description: 'Negates the test result causing it to fail if it passed.'
     default: false
   expect-console-pattern:
-    description: 'Sets up a regular expression that needs to match one console message'
+    description: 'Sets up a regular expression that needs to match one console message.'
     default: ''
+  timeout-seconds:
+    description: 'Maximum number of seconds allowed for test to run.'
+    default: 60
+  timeout-inactive-seconds:
+    description: "Number of seconds during which if no browser activity is detected, it stops the test."
+    default: 3
 # outputs:
 #   time: # id of output
 #     description: 'The time we greeted you'
